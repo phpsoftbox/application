@@ -39,10 +39,7 @@
     "autoload": {
         "psr-4": {
             "PhpSoftBox\\Application\\": "src/"
-        },
-        "files": [
-            "src/deprecated-aliases.php"
-        ]
+        }
     },
     "autoload-dev": {
         "psr-4": {
