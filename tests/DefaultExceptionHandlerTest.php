@@ -13,7 +13,7 @@ use PhpSoftBox\Http\Message\ResponseFactory;
 use PhpSoftBox\Http\Message\ServerRequest;
 use PhpSoftBox\Router\Exception\RouteNotFoundException;
 use PhpSoftBox\Session\Session;
-use PhpSoftBox\Session\SessionStoreInterface;
+use PhpSoftBox\Session\Store\SessionStoreInterface;
 use PhpSoftBox\Validator\Exception\ValidationException;
 use PhpSoftBox\Validator\ValidationError;
 use PhpSoftBox\Validator\ValidationResult;

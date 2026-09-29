@@ -22,6 +22,7 @@
         "phpsoftbox/profiler": "dev-master",
         "phpsoftbox/rate-limiter": "dev-master",
         "phpsoftbox/router": "dev-master",
+        "phpsoftbox/session": "dev-master",
         "phpsoftbox/view": "dev-master",
         "psr/container": "^2.0",
         "psr/http-factory": "^1.0",
@@ -31,16 +32,17 @@
         "psr/log": "^3.0"
     },
     "require-dev": {
-        "friendsofphp/php-cs-fixer": "^3.93",
-        "phpsoftbox/cli-app": "dev-master",
-        "phpsoftbox/cs-fixer": "^1.1.0",
+        "phpsoftbox/cs-fixer": "^1.2.1",
         "phpsoftbox/validator": "dev-master",
-        "phpunit/phpunit": "^11.2"
+        "phpunit/phpunit": "^13.3"
     },
     "autoload": {
         "psr-4": {
             "PhpSoftBox\\Application\\": "src/"
-        }
+        },
+        "files": [
+            "src/deprecated-aliases.php"
+        ]
     },
     "autoload-dev": {
         "psr-4": {
