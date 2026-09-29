@@ -234,6 +234,21 @@ $app->alias('session', SessionMiddleware::class);
 $app->middlewareGroup('web', ['session']);
 ```
 
+Middleware из контейнера создаются лениво, в момент вызова: ошибка создания (например, отсутствующая зависимость)
+проходит через `ErrorHandlerMiddleware`, если он стоит выше в стеке.
+
+`RequestSizeLimitMiddleware` проверяет `Content-Length`, а без него (chunked) — фактический размер тела: читает его
+не дальше лимита и возвращает поток в начало.
+
+`CorsMiddleware` не допускает `allowedOrigins: ['*']` вместе с `allowCredentials: true` — это исключение
+конфигурации: с credentials разрешённые origin нужно перечислить явно.
+
+## Обработчик ошибок с репортерами
+
+`DefaultExceptionHandler` сообщает исключение репортерам (`LoggerExceptionReporter`, `ErrorHubExceptionReporter` и
+свои) и передаёт ответ обработчику по умолчанию. Сессия необязательна: без неё (API-приложение) ошибки валидации и
+CSRF отдаются обработчиком по умолчанию, а не редиректом «назад». CSRF-ошибка для JSON-клиента — ответ 419.
+
 ## Группы middleware
 
 ```php
