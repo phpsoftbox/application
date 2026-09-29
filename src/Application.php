@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PhpSoftBox\Application;
 
 use BadMethodCallException;
+use Closure;
 use InvalidArgumentException;
 use PhpSoftBox\Application\ErrorHandler\ExceptionHandlerInterface;
 use PhpSoftBox\Application\Middleware\ErrorHandlerMiddleware;
@@ -35,6 +36,7 @@ use function is_file;
 use function is_string;
 use function rtrim;
 use function sort;
+use function strtoupper;
 
 use const SORT_STRING;
 
@@ -232,7 +234,7 @@ final class Application implements RequestHandlerInterface
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
-        $stack = $this->resolveMiddlewareStack();
+        $stack = $this->middlewareManager->stack($this->middlewareGroups);
 
         if ($stack === []) {
             return $this->handler->handle($request);
@@ -240,17 +242,23 @@ final class Application implements RequestHandlerInterface
 
         $handler = $this->handler;
 
+        // Middleware создаются лениво, в момент вызова: ошибка создания проходит через ErrorHandlerMiddleware выше по
+        // стеку, а не мимо него.
         foreach (array_reverse($stack) as $middleware) {
-            $handler = new class ($middleware, $handler) implements RequestHandlerInterface {
+            $handler = new class ($middleware, $handler, $this->resolveMiddleware(...)) implements RequestHandlerInterface {
+                /**
+                 * @param Closure(MiddlewareInterface|string): MiddlewareInterface $resolve
+                 */
                 public function __construct(
-                    private MiddlewareInterface $middleware,
-                    private RequestHandlerInterface $handler,
+                    private readonly MiddlewareInterface|string $middleware,
+                    private readonly RequestHandlerInterface $handler,
+                    private readonly Closure $resolve,
                 ) {
                 }
 
                 public function handle(ServerRequestInterface $request): ResponseInterface
                 {
-                    return $this->middleware->process($request, $this->handler);
+                    return ($this->resolve)($this->middleware)->process($request, $this->handler);
                 }
             };
         }
@@ -265,29 +273,10 @@ final class Application implements RequestHandlerInterface
         $response = $this->handle($request);
 
         $emitter ??= $this->emitter ?? new SapiEmitter();
-        $emitter->emit($response);
+        // HEAD обслуживается GET-маршрутом: заголовки как у GET, тело не отправляется.
+        $emitter->emit($response, withoutBody: strtoupper($request->getMethod()) === 'HEAD');
 
         return $response;
-    }
-
-    /**
-     * @return list<MiddlewareInterface>
-     */
-    private function resolveMiddlewareStack(): array
-    {
-        $stack = $this->middlewareManager->stack($this->middlewareGroups);
-
-        if ($stack === []) {
-            return [];
-        }
-
-        $resolved = [];
-
-        foreach ($stack as $middleware) {
-            $resolved[] = $this->resolveMiddleware($middleware);
-        }
-
-        return $resolved;
     }
 
     /**

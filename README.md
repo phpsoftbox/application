@@ -50,6 +50,9 @@ $app = new Application($router, [
 $response = $app->handle($request);
 ```
 
+`$app->run($request)` обрабатывает запрос и отправляет ответ через `SapiEmitter` (или переданный эмиттер).
+Для `HEAD` ответ формирует GET-маршрут, заголовки отправляются как у GET, тело — нет.
+
 ## Настройка формата ошибок (Deciders)
 
 `ContentNegotiationExceptionHandler` поддерживает реестр deciders для выбора формата ответа на ошибку.
@@ -234,6 +237,21 @@ $app->alias('session', SessionMiddleware::class);
 $app->middlewareGroup('web', ['session']);
 ```
 
+Middleware из контейнера создаются лениво, в момент вызова: ошибка создания (например, отсутствующая зависимость)
+проходит через `ErrorHandlerMiddleware`, если он стоит выше в стеке.
+
+`RequestSizeLimitMiddleware` проверяет `Content-Length`, а без него (chunked) — фактический размер тела: читает его
+не дальше лимита и возвращает поток в начало.
+
+`CorsMiddleware` не допускает `allowedOrigins: ['*']` вместе с `allowCredentials: true` — это исключение
+конфигурации: с credentials разрешённые origin нужно перечислить явно.
+
+## Обработчик ошибок с репортерами
+
+`DefaultExceptionHandler` сообщает исключение репортерам (`LoggerExceptionReporter`, `ErrorHubExceptionReporter` и
+свои) и передаёт ответ обработчику по умолчанию. Сессия необязательна: без неё (API-приложение) ошибки валидации и
+CSRF отдаются обработчиком по умолчанию, а не редиректом «назад». CSRF-ошибка для JSON-клиента — ответ 419.
+
 ## Группы middleware
 
 ```php
@@ -299,8 +317,8 @@ return new JsonResponse(['ok' => true]);
 
 ## Ошибки роутера
 
-`InvalidRouteParameterException` (например, когда параметр не проходит валидацию) в прод-режиме
-возвращает 404 `Not Found`. В debug-режиме сообщение исключения возвращается в ответе.
+`InvalidRouteParameterException` (например, когда параметр не проходит валидацию) возвращает 404 `Not Found`
+в любом режиме: текст исключения описывает правила маршрута и в ответ не попадает.
 
 ## Машиночитаемые JSON-ошибки
 
@@ -323,6 +341,25 @@ throw new CodedHttpException(
 `debugMessage`, исходное exception message и stack trace доступны только при
 включённом debug-режиме. Это изменение формата: потребителям JSON-ошибок нужно
 учесть новое обязательное поле `code`.
+
+## Доверенные прокси
+
+`TrustedProxyMiddleware` ставится первым в стеке. Заголовки `X-Forwarded-For`, `X-Forwarded-Proto`,
+`X-Forwarded-Host` и `X-Forwarded-Port` учитываются, только если `REMOTE_ADDR` входит в список доверенных прокси
+(IP или CIDR, IPv4 и IPv6). Тогда middleware:
+
+- подставляет в `REMOTE_ADDR` IP клиента — первый справа адрес `X-Forwarded-For`, который сам не доверенный прокси
+  (левые адреса цепочки клиент может подделать); адрес прокси — в атрибуте `proxy_addr`;
+- подставляет в URI запроса схему, host и порт от прокси.
+
+Остальной код (Auth, Session, Router, rate limiter) читает только `REMOTE_ADDR` и URI и сам заголовки
+`X-Forwarded-*` не учитывает. Без списка прокси заголовки игнорируются.
+
+```php
+$app->add(new TrustedProxyMiddleware(['10.0.0.0/8', 'fd00::/8']), 1000);
+```
+
+В AppBackend список задаётся переменной `APP_TRUSTED_PROXIES` (через запятую).
 
 ## Rate limit middleware
 

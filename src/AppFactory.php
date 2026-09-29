@@ -22,7 +22,10 @@ use PhpSoftBox\Router\RouteCollectorFactoryInterface;
 use PhpSoftBox\Router\Router;
 use PhpSoftBox\Router\RouteResolver;
 use Psr\Container\ContainerInterface;
+use Psr\Log\LoggerInterface;
 use Throwable;
+
+use function error_log;
 
 final class AppFactory
 {
@@ -124,7 +127,9 @@ final class AppFactory
             try {
                 $collector    = $routeCache->has($environment) ? $routeCache->load($environment) : null;
                 $routesCached = $collector instanceof RouteCollector;
-            } catch (RouteCacheException) {
+            } catch (RouteCacheException $exception) {
+                // Кеш маршрутов повреждён: работаем без него, но не молча.
+                self::reportRouteCacheProblem($container, $exception);
             }
         }
 
@@ -158,10 +163,28 @@ final class AppFactory
 
         try {
             $cache = $container->get(RouteCache::class);
-        } catch (Throwable) {
+        } catch (Throwable $exception) {
+            self::reportRouteCacheProblem($container, $exception);
+
             return null;
         }
 
         return $cache instanceof RouteCache ? $cache : null;
+    }
+
+    private static function reportRouteCacheProblem(ContainerInterface $container, Throwable $exception): void
+    {
+        $message = 'Route cache is disabled: ' . $exception->getMessage();
+
+        if ($container->has(LoggerInterface::class)) {
+            $logger = $container->get(LoggerInterface::class);
+            if ($logger instanceof LoggerInterface) {
+                $logger->warning($message, ['exception' => $exception]);
+
+                return;
+            }
+        }
+
+        error_log($message);
     }
 }
