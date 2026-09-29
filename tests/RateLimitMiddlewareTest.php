@@ -70,6 +70,15 @@ final class RateLimitMiddlewareTest extends TestCase
 
                 return new RateLimitResult(true, $maxAttempts, 4, 30, 1_234_567);
             }
+
+            public function attempts(string $key): int
+            {
+                return 0;
+            }
+
+            public function reset(string $key): void
+            {
+            }
         };
         $middleware = new RateLimitMiddleware($limiter, namespace: 'node_api');
         $request    = new ServerRequest(
