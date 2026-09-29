@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace PhpSoftBox\Application\ErrorHandler;
 
 use PhpSoftBox\Application\ErrorHandler\Mapper\RouteExceptionMapper;
-use PhpSoftBox\Http\Message\Redirector;
+use PhpSoftBox\Application\Response\Redirector;
 use PhpSoftBox\Session\SessionInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
