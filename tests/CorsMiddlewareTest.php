@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace PhpSoftBox\Application\Tests;
 
+use InvalidArgumentException;
 use PhpSoftBox\Application\Middleware\CorsMiddleware;
 use PhpSoftBox\Http\Message\Response;
 use PhpSoftBox\Http\Message\ResponseFactory;
 use PhpSoftBox\Http\Message\ServerRequest;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -72,5 +74,18 @@ final class CorsMiddlewareTest extends TestCase
         $response = $middleware->process($request, $handler);
 
         $this->assertSame('', $response->getHeaderLine('Access-Control-Allow-Origin'));
+    }
+
+    /**
+     * Проверим, что `*` вместе с credentials отклоняется при создании: иначе любой сайт читал бы ответы с cookie.
+     *
+     * @see CorsMiddleware::__construct()
+     */
+    #[Test]
+    public function rejectsWildcardWithCredentials(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        new CorsMiddleware(new ResponseFactory(), allowedOrigins: ['*'], allowCredentials: true);
     }
 }

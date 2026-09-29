@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PhpSoftBox\Application\ErrorHandler;
 
 use PhpSoftBox\Application\ErrorHandler\Mapper\RouteExceptionMapper;
+use PhpSoftBox\Application\Exception\HttpException;
 use PhpSoftBox\Application\Response\Redirector;
 use PhpSoftBox\Session\SessionInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
@@ -32,7 +33,7 @@ final class DefaultExceptionHandler implements ExceptionHandlerInterface
     public function __construct(
         private readonly ExceptionHandlerInterface $fallbackHandler,
         private readonly ResponseFactoryInterface $responseFactory,
-        private readonly SessionInterface $session,
+        private readonly ?SessionInterface $session = null,
         private readonly array $reporters = [],
         private readonly array $dontReport = [],
         private readonly array $dontFlash = [],
@@ -49,7 +50,7 @@ final class DefaultExceptionHandler implements ExceptionHandlerInterface
         }
 
         if ($this->isCsrfMismatch($exception)) {
-            return $this->handleCsrfMismatch($request);
+            return $this->handleCsrfMismatch($exception, $request);
         }
 
         return $this->fallbackHandler->handle($this->normalizeException($exception), $request);
@@ -99,11 +100,12 @@ final class DefaultExceptionHandler implements ExceptionHandlerInterface
 
     private function handleValidationException(Throwable $exception, ServerRequestInterface $request): ResponseInterface
     {
-        if ($this->shouldReturnJson($request)) {
+        // Без сессии (API-приложение) ошибки некуда положить для редиректа — отвечает обработчик по умолчанию.
+        if ($this->shouldReturnJson($request) || $this->session === null) {
             return $this->fallbackHandler->handle($exception, $request);
         }
 
-        $this->startSession();
+        $this->startSession($this->session);
 
         $errors  = $this->normalizeErrors($exception->errors());
         $message = $this->firstError($errors);
@@ -123,13 +125,17 @@ final class DefaultExceptionHandler implements ExceptionHandlerInterface
         return $response->response();
     }
 
-    private function handleCsrfMismatch(ServerRequestInterface $request): ResponseInterface
+    private function handleCsrfMismatch(Throwable $exception, ServerRequestInterface $request): ResponseInterface
     {
-        if ($this->shouldReturnJson($request)) {
-            return $this->fallbackHandler->handle(new RuntimeException('CSRF token mismatch.'), $request);
+        // 419 — как принято для истёкшего CSRF-токена; обычный RuntimeException давал 500.
+        if ($this->shouldReturnJson($request) || $this->session === null) {
+            return $this->fallbackHandler->handle(
+                new HttpException(419, 'CSRF token mismatch.', title: 'Page Expired', previous: $exception),
+                $request,
+            );
         }
 
-        $this->startSession();
+        $this->startSession($this->session);
 
         $redirector = new Redirector($this->responseFactory, $this->session, $request);
 
@@ -141,10 +147,10 @@ final class DefaultExceptionHandler implements ExceptionHandlerInterface
         return $response->response();
     }
 
-    private function startSession(): void
+    private function startSession(SessionInterface $session): void
     {
-        if (!$this->session->isStarted()) {
-            $this->session->start();
+        if (!$session->isStarted()) {
+            $session->start();
         }
     }
 

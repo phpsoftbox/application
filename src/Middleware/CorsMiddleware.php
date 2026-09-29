@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PhpSoftBox\Application\Middleware;
 
+use InvalidArgumentException;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -38,6 +39,11 @@ final class CorsMiddleware implements MiddlewareInterface
         private ?int $maxAge = null,
     ) {
         $this->allowedMethods = array_map('strtoupper', $this->allowedMethods);
+
+        // `*` с credentials отражал бы любой Origin: любой сайт читал бы ответы с cookie пользователя.
+        if ($this->allowCredentials && in_array('*', $this->allowedOrigins, true)) {
+            throw new InvalidArgumentException('CORS: allowedOrigins "*" cannot be combined with allowCredentials; list the origins explicitly.');
+        }
     }
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
@@ -102,15 +108,7 @@ final class CorsMiddleware implements MiddlewareInterface
 
     private function resolveAllowOrigin(string $origin): string
     {
-        if (in_array('*', $this->allowedOrigins, true)) {
-            if ($this->allowCredentials) {
-                return $origin;
-            }
-
-            return '*';
-        }
-
-        return $origin;
+        return in_array('*', $this->allowedOrigins, true) ? '*' : $origin;
     }
 
     /**

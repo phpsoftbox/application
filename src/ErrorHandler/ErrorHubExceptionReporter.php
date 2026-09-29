@@ -79,10 +79,9 @@ final readonly class ErrorHubExceptionReporter implements ExceptionReporterInter
             return;
         }
 
-        $payload = $this->buildPayload($exception, $reportContext);
-
+        // Сбор данных (контекст, пользователь) тоже может упасть — это не должно заменить исходное исключение.
         try {
-            $this->send($payload);
+            $this->send($this->buildPayload($exception, $reportContext));
         } catch (Throwable) {
             // Do not break the app on reporting errors.
         }
@@ -181,7 +180,8 @@ final readonly class ErrorHubExceptionReporter implements ExceptionReporterInter
 
     private function utcTimestamp(): string
     {
-        return new DateTimeImmutable('now', $this->timezone)->format('Y-m-d\\TH:i:s\\Z');
+        // Суффикс Z означает UTC: время в настроенной зоне с ним было бы неверным.
+        return new DateTimeImmutable('now', new DateTimeZone('UTC'))->format('Y-m-d\\TH:i:s\\Z');
     }
 
     /**
