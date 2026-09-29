@@ -50,6 +50,9 @@ $app = new Application($router, [
 $response = $app->handle($request);
 ```
 
+`$app->run($request)` обрабатывает запрос и отправляет ответ через `SapiEmitter` (или переданный эмиттер).
+Для `HEAD` ответ формирует GET-маршрут, заголовки отправляются как у GET, тело — нет.
+
 ## Настройка формата ошибок (Deciders)
 
 `ContentNegotiationExceptionHandler` поддерживает реестр deciders для выбора формата ответа на ошибку.

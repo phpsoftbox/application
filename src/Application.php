@@ -36,6 +36,7 @@ use function is_file;
 use function is_string;
 use function rtrim;
 use function sort;
+use function strtoupper;
 
 use const SORT_STRING;
 
@@ -272,7 +273,8 @@ final class Application implements RequestHandlerInterface
         $response = $this->handle($request);
 
         $emitter ??= $this->emitter ?? new SapiEmitter();
-        $emitter->emit($response);
+        // HEAD обслуживается GET-маршрутом: заголовки как у GET, тело не отправляется.
+        $emitter->emit($response, withoutBody: strtoupper($request->getMethod()) === 'HEAD');
 
         return $response;
     }
