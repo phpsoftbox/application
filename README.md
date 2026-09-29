@@ -324,6 +324,25 @@ throw new CodedHttpException(
 включённом debug-режиме. Это изменение формата: потребителям JSON-ошибок нужно
 учесть новое обязательное поле `code`.
 
+## Доверенные прокси
+
+`TrustedProxyMiddleware` ставится первым в стеке. Заголовки `X-Forwarded-For`, `X-Forwarded-Proto`,
+`X-Forwarded-Host` и `X-Forwarded-Port` учитываются, только если `REMOTE_ADDR` входит в список доверенных прокси
+(IP или CIDR, IPv4 и IPv6). Тогда middleware:
+
+- подставляет в `REMOTE_ADDR` IP клиента — первый справа адрес `X-Forwarded-For`, который сам не доверенный прокси
+  (левые адреса цепочки клиент может подделать); адрес прокси — в атрибуте `proxy_addr`;
+- подставляет в URI запроса схему, host и порт от прокси.
+
+Остальной код (Auth, Session, Router, rate limiter) читает только `REMOTE_ADDR` и URI и сам заголовки
+`X-Forwarded-*` не учитывает. Без списка прокси заголовки игнорируются.
+
+```php
+$app->add(new TrustedProxyMiddleware(['10.0.0.0/8', 'fd00::/8']), 1000);
+```
+
+В AppBackend список задаётся переменной `APP_TRUSTED_PROXIES` (через запятую).
+
 ## Rate limit middleware
 
 Middleware принимает проектный key resolver, нормализует результат через
